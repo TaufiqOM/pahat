@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pahat Patung 3D: Warisan Dewa</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Three.js Libraries -->
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.156.1/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.156.1/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="game-container">
+        <!-- HUD Overlay -->
+        <div id="hud">
+            <header>
+                <div class="level-info">Level <span id="current-level-num">1</span></div>
+                <div class="statue-name" id="current-statue-name">Shiva Lingam</div>
+            </header>
+
+            <div id="controls-top" style="display:none;"></div>
+
+            <div id="controls-bottom">
+                <div class="tool-selector">
+                    <div class="tool-item active" data-tool="BODAN">
+                        <span class="tool-icon">🔨</span>
+                        <span class="tool-name">Bodan</span>
+                    </div>
+                    <div class="tool-item" data-tool="RUNCING">
+                        <span class="tool-icon">🖋️</span>
+                        <span class="tool-name">Runcing</span>
+                    </div>
+                    <div class="tool-item" data-tool="GERIGI">
+                        <span class="tool-icon">🍴</span>
+                        <span class="tool-name">Gerigi</span>
+                    </div>
+                    <div class="tool-item" data-tool="PIPIH">
+                        <span class="tool-icon">➖</span>
+                        <span class="tool-name">Pipih</span>
+                    </div>
+                </div>
+                
+                <div class="strength-control">
+                    <div class="strength-label">⚡ Kekuatan: <span id="strength-val">100</span>%</div>
+                    <input type="range" id="input-strength" min="10" max="250" value="100">
+                </div>
+
+                <div class="history-controls">
+                    <button id="btn-undo" class="history-btn">↩️ Undo</button>
+                    <button id="btn-redo" class="history-btn">Redo ↪️</button>
+                </div>
+                
+                <div class="view-controls">
+                    <button id="btn-mode-rotate" class="toggle-btn">🔄 Putar</button>
+                    <button id="btn-finish-manual" class="btn-finish">✨ Selesai & Lanjut</button>
+                </div>
+
+                <p id="hint-text">Gunakan Gada untuk memapas blok batu</p>
+            </div>
+        </div>
+
+        <!-- Instructions Overlay -->
+        <div id="overlay-instructions" class="overlay active">
+            <div class="overlay-content glass">
+                <h1>Pahat Patung 3D</h1>
+                <p class="subtitle">Warisan Dewa</p>
+                
+                <div class="instructions-steps">
+                    <div class="step">
+                        <div class="icon">💎</div>
+                        <p>Memahat blok batu asli dalam ruang 3 dimensi.</p>
+                    </div>
+                    <div class="step">
+                        <div class="icon">🔄</div>
+                        <p>Putar batu untuk memahat dari segala sisi.</p>
+                    </div>
+                    <div class="step">
+                        <div class="icon">📈</div>
+                        <p>Lewati 3 tahap: Memapas, Membentuk, dan Mengukir.</p>
+                    </div>
+                </div>
+
+                <button id="btn-start" class="btn-primary">Mulai Mahakarya 3D</button>
+            </div>
+        </div>
+
+        <!-- Level Success Overlay -->
+        <div id="overlay-success" class="overlay">
+            <div class="overlay-content glass">
+                <div class="success-icon">✨</div>
+                <h2>Hasil Karya Sempurna!</h2>
+                <p id="success-statue-info"></p>
+                <button id="btn-next" class="btn-primary">Karya Berikutnya</button>
+            </div>
+        </div>
+
+        <!-- Final Win Overlay -->
+        <div id="overlay-win" class="overlay">
+            <div class="overlay-content glass">
+                <div class="victory-crown">👑</div>
+                <h2>Sang Maestro Hindu</h2>
+                <p>Anda telah melestarikan warisan suci dalam bentuk mahakarya 3D.</p>
+                <button onclick="location.reload()" class="btn-primary">Main Lagi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- The 3D App will be injected here -->
+    <script type="module" src="game3d.js"></script>
+</body>
+</html>
