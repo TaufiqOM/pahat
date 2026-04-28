@@ -4,25 +4,25 @@ import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 
 const levels = [
     {
-        name: "Shiva Lingam",
-        statueImg: "assets/lingga.png",
-        color: 0x444444,
-        resolution: 24,
+        name: "Singa",
+        statueImg: "assets/lion_depth.png",
+        color: 0x8b7355, 
+        resolution: 48,
         winThreshold: 0.8
     },
     {
-        name: "Lord Ganesha",
-        statueImg: "assets/ganesha.png",
-        color: 0x888888,
-        resolution: 32,
-        winThreshold: 0.85
+        name: "Burung Hantu",
+        statueImg: "assets/owl_depth.png",
+        color: 0x555555, 
+        resolution: 48,
+        winThreshold: 0.8
     },
     {
-        name: "Garuda",
-        statueImg: "assets/garuda.png",
-        color: 0x5d3a1a,
-        resolution: 36,
-        winThreshold: 0.9
+        name: "Gajah",
+        statueImg: "assets/elephant_depth.png",
+        color: 0x444444, 
+        resolution: 48, 
+        winThreshold: 0.85
     }
 ];
 
@@ -76,6 +76,7 @@ let currentTool = TOOLS.BODAN;
 
 let scene, camera, renderer, controls, raycaster;
 let marchContext;
+let targetField = null;
 let statueCore, debugMarker;
 let particles = [];
 let isMouseDown = false;
@@ -310,7 +311,7 @@ function toggleRotateMode() {
         currentTool.hint : "Seret untuk memutar sudut pandang";
 }
 
-function loadLevel(index) {
+async function loadLevel(index) {
     console.log("Loading level:", index);
     currentLevelIndex = index;
     currentStage = 1;
@@ -343,7 +344,10 @@ function loadLevel(index) {
         marchContext.scale.set(1.5, 1.5, 1.5);
         marchContext.isolation = 80;
         
-        // Fill the mass with density
+        // Wait for the heightmap image to load and generate target field
+        await loadHeightmap(level.statueImg, resolution);
+        
+        // Fill the mass with density (dirt)
         fillMass(marchContext);
         
         // Initial update
@@ -360,6 +364,75 @@ function loadLevel(index) {
     progress = 0;
 }
 
+function loadHeightmap(url, res) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.src = url;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = res;
+            canvas.height = res;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, res, res);
+            const data = ctx.getImageData(0, 0, res, res).data;
+            
+            targetField = new Float32Array(res * res * res);
+            
+            // Map depth to Z-axis
+            const minZ = Math.floor(res * 0.2);
+            const maxZ = Math.floor(res * 0.75);
+            const depthRange = maxZ - minZ;
+            
+            for (let x = 0; x < res; x++) {
+                for (let y = 0; y < res; y++) {
+                    const idx2d = (y * res + x) * 4;
+                    const brightness = data[idx2d] / 255.0; 
+                    
+                    const surfaceZ = Math.floor(minZ + brightness * depthRange);
+                    
+                    // Canvas Y goes down, 3D grid Y goes up
+                    const gridY = res - 1 - y;
+                    
+                    for (let z = 0; z < res; z++) {
+                        if (z <= surfaceZ) {
+                            targetField[x + gridY * res + z * res * res] = 200; 
+                        }
+                    }
+                }
+            }
+            
+            // Smooth the voxel steps into nice slopes
+            smoothField(targetField, res);
+            resolve();
+        };
+        img.onerror = () => {
+            console.error("Failed to load heightmap image:", url);
+            targetField = new Float32Array(res * res * res);
+            resolve();
+        };
+    });
+}
+
+function smoothField(field, res) {
+    const temp = new Float32Array(res * res * res);
+    temp.set(field);
+    for (let x = 1; x < res - 1; x++) {
+        for (let y = 1; y < res - 1; y++) {
+            for (let z = 1; z < res - 1; z++) {
+                let sum = 0;
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dz = -1; dz <= 1; dz++) {
+                            sum += temp[(x+dx) + (y+dy)*res + (z+dz)*res*res];
+                        }
+                    }
+                }
+                field[x + y * res + z * res * res] = sum / 27;
+            }
+        }
+    }
+}
+
 function fillMass(mc) {
     const res = mc.resolution;
     mc.reset(); 
@@ -368,17 +441,22 @@ function fillMass(mc) {
         for (let y = 0; y < res; y++) {
             for (let z = 0; z < res; z++) {
                 let val = 0;
-                const dx = Math.abs(x - res/2);
-                const dy = Math.abs(y - res/2);
-                const dz = Math.abs(z - res/2);
                 
-                // Shrink dimensions slightly to ensure it stays within the grid boundaries
-                // and doesn't appear "hollow" or cut off at the top/bottom.
-                if (dx < res/3.5 && dy < res/2.6 && dz < res/3.5) {
+                // Solid rectangular slab of stone
+                const padding = Math.floor(res * 0.15);
+                if (x >= padding && x < res - padding && 
+                    y >= padding && y < res - padding && 
+                    z >= padding && z < res - padding) {
                     val = 100;
                 }
                 
-                mc.field[x + y * res + z * res * res] = val;
+                const idx = x + y * res + z * res * res;
+                // Ensure dirt fully covers the hidden statue
+                if (targetField && targetField[idx] > 80) {
+                    val = Math.max(val, 100);
+                }
+                
+                mc.field[idx] = val;
             }
         }
     }
@@ -461,9 +539,20 @@ function sculptAt(hit) {
                     if (distSq < currentRadius * currentRadius) {
                         const idx = x + y * res + z * res * res;
                         if (mc.field[idx] > 10) {
-                            mc.field[idx] -= strength; 
-                            if (mc.field[idx] < 0) mc.field[idx] = 0;
-                            changed = true;
+                            let targetDensity = targetField ? targetField[idx] : 0;
+                            let newVal = mc.field[idx] - strength; 
+                            
+                            // Prevent carving into the hidden statue
+                            if (targetDensity >= 80 && newVal < 80) {
+                                newVal = 80;
+                            }
+                            
+                            if (newVal < 0) newVal = 0;
+                            
+                            if (mc.field[idx] !== newVal) {
+                                mc.field[idx] = newVal;
+                                changed = true;
+                            }
                         }
                     }
                 }
