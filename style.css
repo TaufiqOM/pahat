@@ -1,10 +1,12 @@
 :root {
-    --primary-gold: #d4af37;
-    --dark-bg: #0b0b0e;
-    --glass-bg: rgba(15, 15, 20, 0.7);
-    --glass-border: rgba(212, 175, 55, 0.2);
-    --accent-glow: rgba(212, 175, 55, 0.4);
-    --text-main: #f0f0f0;
+    --primary-gold: #e5c07b;
+    --accent-gold: #d4af37;
+    --dark-bg: #050507;
+    --glass-bg: rgba(20, 20, 25, 0.75);
+    --glass-border: rgba(229, 192, 123, 0.25);
+    --accent-glow: rgba(229, 192, 123, 0.3);
+    --text-main: #ffffff;
+    --text-dim: #a0a0a5;
 }
 
 * {
@@ -69,7 +71,13 @@ header {
 
 .statue-name {
     font-family: 'Cinzel', serif;
-    font-size: 1.4rem;
+    font-size: 1.8rem;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    background: linear-gradient(to bottom, #fff, var(--primary-gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 10px 20px rgba(0,0,0,0.5);
 }
 
 .history-controls {
@@ -242,13 +250,15 @@ input[type=range]::-webkit-slider-thumb {
 .tool-selector {
     display: flex;
     justify-content: center;
-    gap: 10px;
+    gap: 12px;
     width: 100%;
-    max-width: 500px;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    max-width: 550px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.02);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 }
 
 .tool-item {
@@ -327,7 +337,30 @@ input[type=range]::-webkit-slider-thumb {
     cursor: pointer;
     transition: all 0.3s;
     flex: 1;
-    max-width: 200px;
+    max-width: 150px;
+}
+
+.btn-destroy {
+    background: rgba(255, 68, 68, 0.1);
+    border: 1px solid #ff4444;
+    color: #ff4444;
+    padding: 10px 15px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s;
+    flex: 1;
+    max-width: 150px;
+}
+
+.btn-destroy:hover {
+    background: #ff4444;
+    color: white;
+    box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
+    transform: scale(1.05);
 }
 
 .toggle-btn.active {

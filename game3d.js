@@ -4,24 +4,32 @@ import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
 
 const levels = [
     {
-        name: "Singa",
-        statueImg: "assets/lion_depth.png",
-        color: 0x8b7355, 
-        resolution: 48,
+        name: "Patung Master 3D",
+        statueImg: "assets/Gemini_Generated_Image_x3r3z1x3r3z1x3r3.png",
+        isFourView: true,
+        color: 0xa0a5aa, 
+        resolution: 128,
+        winThreshold: 0.85
+    },
+    {
+        name: "Patung 2",
+        statueImg: "assets/IMG_20260512_074340.png",
+        color: 0x9a8b7a, 
+        resolution: 96,
         winThreshold: 0.8
     },
     {
-        name: "Burung Hantu",
-        statueImg: "assets/owl_depth.png",
-        color: 0x555555, 
-        resolution: 48,
-        winThreshold: 0.8
+        name: "Patung 3",
+        statueImg: "assets/IMG_20260512_074401.png",
+        color: 0x8b857a, 
+        resolution: 96, 
+        winThreshold: 0.85
     },
     {
-        name: "Gajah",
-        statueImg: "assets/elephant_depth.png",
-        color: 0x444444, 
-        resolution: 48, 
+        name: "Patung Ganesha",
+        statueImg: "assets/ganesha_color.png",
+        color: 0x9a8b8b, 
+        resolution: 96, 
         winThreshold: 0.85
     }
 ];
@@ -182,6 +190,8 @@ function init() {
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         
         const container = document.getElementById('game-container');
         if (!container) {
@@ -196,17 +206,55 @@ function init() {
         controls.enableDamping = true;
         controls.enabled = false;
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2); // Darker ambient for more contrast
         scene.add(ambientLight);
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        dirLight.position.set(5, 10, 7);
-        dirLight.castShadow = true;
-        scene.add(dirLight);
+        // High-contrast Spotlight
+        const spotLight = new THREE.SpotLight(0xffffff, 40);
+        spotLight.position.set(5, 10, 5);
+        spotLight.angle = Math.PI / 8;
+        spotLight.penumbra = 0.2;
+        spotLight.decay = 0.5;
+        spotLight.distance = 40;
+        spotLight.castShadow = true;
+        spotLight.shadow.mapSize.width = 2048;
+        spotLight.shadow.mapSize.height = 2048;
+        scene.add(spotLight);
 
-        const backLight = new THREE.DirectionalLight(0xffffff, 0.5);
-        backLight.position.set(-5, -2, -5);
-        scene.add(backLight);
+        // Rim Light for edge highlights
+        const rimLight = new THREE.DirectionalLight(0x99bbff, 0.6);
+        rimLight.position.set(-5, 5, -5);
+        scene.add(rimLight);
+
+        // Fill Light
+        const fillLight = new THREE.DirectionalLight(0xffeebb, 0.4);
+        fillLight.position.set(-8, 2, 5);
+        scene.add(fillLight);
+
+        // Interactive Point Light (follows marker)
+        const pointLight = new THREE.PointLight(0xffffff, 8, 4);
+        pointLight.castShadow = false;
+        scene.add(pointLight);
+        scene.pointLight = pointLight;
+
+        // Bounce Lights for better volume
+        const bounce1 = new THREE.PointLight(0xffccaa, 2, 10);
+        bounce1.position.set(-3, -2, 3);
+        scene.add(bounce1);
+
+        const bounce2 = new THREE.PointLight(0xaabbff, 1.5, 10);
+        bounce2.position.set(3, -2, 2);
+        scene.add(bounce2);
+
+        // Ground to catch shadows
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(20, 20),
+            new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.8 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -1.5;
+        ground.receiveShadow = true;
+        scene.add(ground);
 
         // Debug Marker
         debugMarker = new THREE.Mesh(
@@ -252,6 +300,7 @@ function init() {
 
         document.getElementById('btn-undo').onclick = undo;
         document.getElementById('btn-redo').onclick = redo;
+        document.getElementById('btn-destroy').onclick = destroyEverything;
         document.getElementById('btn-finish-manual').onclick = levelComplete;
         document.getElementById('btn-mode-rotate').onclick = toggleRotateMode;
         document.getElementById('btn-start').onclick = startGame;
@@ -324,12 +373,81 @@ async function loadLevel(index) {
     // Marching Cubes Setup (The Solid Mass)
     try {
         const resolution = level.resolution;
-        const material = new THREE.MeshPhongMaterial({ 
+        const textureLoader = new THREE.TextureLoader();
+        const texture = textureLoader.load(level.statueImg);
+        texture.colorSpace = THREE.SRGBColorSpace;
+
+        const material = new THREE.MeshStandardMaterial({ 
             color: level.color, 
-            flatShading: true, // RAW STONE LOOK
-            shininess: 0,
+            roughness: 0.8,
+            metalness: 0.15,
+            flatShading: true,
             side: THREE.DoubleSide
         });
+
+        material.onBeforeCompile = (shader) => {
+            shader.uniforms.uTex = { value: texture };
+            shader.uniforms.uRockColor = { value: new THREE.Color(level.color) };
+            shader.uniforms.uIsFourView = { value: !!level.isFourView };
+            
+            shader.vertexShader = `
+                varying vec3 vLocalPos;
+                varying vec3 vNormal;
+                ${shader.vertexShader}
+            `.replace(
+                `#include <begin_vertex>`,
+                `#include <begin_vertex>
+                 vLocalPos = position;
+                 vNormal = normal;`
+            );
+            
+            shader.fragmentShader = `
+                uniform sampler2D uTex;
+                uniform vec3 uRockColor;
+                uniform bool uIsFourView;
+                varying vec3 vLocalPos;
+                varying vec3 vNormal;
+                ${shader.fragmentShader}
+            `.replace(
+                `#include <map_fragment>`,
+                `
+                #include <map_fragment>
+                
+                vec2 projUv;
+                if (uIsFourView) {
+                    // Mapping 4-View (2x2 Grid)
+                    vec2 uvBase = vec2(vLocalPos.x * 0.5 + 0.5, vLocalPos.y * 0.5 + 0.5);
+                    vec2 uvZ = vec2(vLocalPos.z * 0.5 + 0.5, vLocalPos.y * 0.5 + 0.5);
+                    
+                    if (abs(vNormal.z) > abs(vNormal.x)) {
+                        if (vNormal.z > 0.0) { // Depan
+                            projUv = uvBase * 0.5 + vec2(0.0, 0.5);
+                        } else { // Belakang
+                            projUv = uvBase * 0.5 + vec2(0.5, 0.5);
+                        }
+                    } else {
+                        if (vNormal.x > 0.0) { // Samping Kanan
+                            projUv = uvZ * 0.5 + vec2(0.0, 0.0);
+                        } else { // Samping Kiri
+                            projUv = vec2(1.0 - uvZ.x, uvZ.y) * 0.5 + vec2(0.5, 0.0);
+                        }
+                    }
+                } else {
+                    projUv = vec2(vLocalPos.x * 0.5 + 0.5, vLocalPos.y * 0.5 + 0.5);
+                }
+                
+                vec4 texColor = texture2D(uTex, projUv);
+                
+                float dX = min(vLocalPos.x - (-0.72), 0.70 - vLocalPos.x);
+                float dY = min(vLocalPos.y - (-0.72), 0.70 - vLocalPos.y);
+                float dZ = min(vLocalPos.z - (-0.93), 0.91 - vLocalPos.z);
+                float minDist = min(min(dX, dY), dZ);
+                float blend = smoothstep(0.01, 0.05, minDist);
+                
+                diffuseColor = vec4(mix(uRockColor, texColor.rgb, blend), opacity);
+                `
+            );
+        };
         
         // TEST BOX (Diagnostic)
         const testBox = new THREE.Mesh(
@@ -339,13 +457,15 @@ async function loadLevel(index) {
         testBox.name = "DEBUG_BOX";
         // scene.add(testBox); // Uncomment if everything else fails
         
-        marchContext = new MarchingCubes(resolution, material, true, false, 100000);
+        marchContext = new MarchingCubes(resolution, material, true, false, 200000);
         marchContext.position.set(0, 0, 0);
         marchContext.scale.set(1.5, 1.5, 1.5);
         marchContext.isolation = 80;
+        marchContext.castShadow = true;
+        marchContext.receiveShadow = true;
         
         // Wait for the heightmap image to load and generate target field
-        await loadHeightmap(level.statueImg, resolution);
+        await loadHeightmap(level.statueImg, resolution, level.isFourView);
         
         // Fill the mass with density (dirt)
         fillMass(marchContext);
@@ -364,44 +484,120 @@ async function loadLevel(index) {
     progress = 0;
 }
 
-function loadHeightmap(url, res) {
+function loadHeightmap(url, res, isFourView = false) {
     return new Promise((resolve) => {
         const img = new Image();
         img.src = url;
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            canvas.width = res;
-            canvas.height = res;
+            canvas.width = 512; // Ukuran tetap untuk sampling yang konsisten
+            canvas.height = 512;
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, res, res);
-            const data = ctx.getImageData(0, 0, res, res).data;
+            ctx.drawImage(img, 0, 0, 512, 512);
+            const data = ctx.getImageData(0, 0, 512, 512).data;
+            const dataRes = 512;
             
             targetField = new Float32Array(res * res * res);
             
-            // Map depth to Z-axis
-            const minZ = Math.floor(res * 0.2);
-            const maxZ = Math.floor(res * 0.75);
-            const depthRange = maxZ - minZ;
-            
-            for (let x = 0; x < res; x++) {
-                for (let y = 0; y < res; y++) {
-                    const idx2d = (y * res + x) * 4;
-                    const brightness = data[idx2d] / 255.0; 
+            if (isFourView) {
+                // === REKONSTRUKSI 3D ORGANIK (4-View Depth Mapping) ===
+                // Menggunakan kombinasi Siluet + Luminance untuk menciptakan bentuk yang membulat
+                const half = 256;
+                
+                const getPixelData = (view, px, py) => {
+                    let qx = 0, qy = 0;
+                    if (view === 'front')  { qx = 0;    qy = 0;    }
+                    if (view === 'back')   { qx = half;  qy = 0;    }
+                    if (view === 'right')  { qx = 0;     qy = half; }
+                    if (view === 'left')   { qx = half;  qy = half; }
                     
-                    const surfaceZ = Math.floor(minZ + brightness * depthRange);
+                    const ix = Math.min(Math.floor(px * (half - 1)), half - 1);
+                    const iy = Math.min(Math.floor(py * (half - 1)), half - 1);
+                    const pixelIdx = ((qy + iy) * dataRes + (qx + ix)) * 4;
                     
-                    // Canvas Y goes down, 3D grid Y goes up
-                    const gridY = res - 1 - y;
-                    
-                    for (let z = 0; z < res; z++) {
-                        if (z <= surfaceZ) {
-                            targetField[x + gridY * res + z * res * res] = 200; 
+                    const r = data[pixelIdx], g = data[pixelIdx+1], b = data[pixelIdx+2], a = data[pixelIdx+3];
+                    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+                    return { a, lum };
+                };
+
+                for (let gy = 0; gy < res; gy++) {
+                    const ny = gy / (res - 1);
+                    const imgY = 1.0 - ny;
+
+                    for (let gx = 0; gx < res; gx++) {
+                        const nx = gx / (res - 1); 
+                        const pF = getPixelData('front', nx, imgY);
+                        const pB = getPixelData('back', nx, imgY); 
+                        
+                        const dF = (pF.a > 20 && pF.lum < 0.92) ? (0.1 + (1.0 - pF.lum) * 0.9) : 0;
+                        const dB = (pB.a > 20 && pB.lum < 0.92) ? (0.1 + (1.0 - pB.lum) * 0.9) : 0;
+
+                        if (dF === 0 && dB === 0) continue;
+
+                        for (let gz = 0; gz < res; gz++) {
+                            const nz = gz / (res - 1); 
+                            
+                            const pR = getPixelData('right', 1.0 - nz, imgY);
+                            const pL = getPixelData('left', nz, imgY);
+                            
+                            const dR = (pR.a > 20 && pR.lum < 0.92) ? (0.1 + (1.0 - pR.lum) * 0.9) : 0;
+                            const dL = (pL.a > 20 && pL.lum < 0.92) ? (0.1 + (1.0 - pL.lum) * 0.9) : 0;
+
+                            if (dR === 0 && dL === 0) continue;
+
+                            // Intersection of 4 Volumes
+                            const isInsideFront = (1.0 - nz) <= dF; 
+                            const isInsideBack  = nz <= dB;
+                            const isInsideRight = (1.0 - nx) <= dR;
+                            const isInsideLeft  = nx <= dL;
+
+                            if (isInsideFront && isInsideBack && isInsideRight && isInsideLeft) {
+                                const idx = gx + gy * res + gz * res * res;
+                                targetField[idx] = 200;
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Logika Single-View Relief (seperti sebelumnya)
+                const minZ = Math.floor(res * 0.05); 
+                const maxZ = Math.floor(res * 0.95); 
+                const depthRange = maxZ - minZ;
+                
+                for (let x = 0; x < res; x++) {
+                    for (let y = 0; y < res; y++) {
+                        const lx = x / res;
+                        const ly = y / res;
+                        const idxImg = (Math.floor((1 - ly) * (dataRes - 1)) * dataRes + Math.floor(lx * (dataRes - 1))) * 4;
+                        
+                        const r = data[idxImg], g = data[idxImg+1], b = data[idxImg+2], a = data[idxImg+3];
+                        const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+                        
+                        let brightness = 0;
+                        if (a > 10 && lum < 0.9) { 
+                            brightness = 0.3 + (1.0 - lum) * 0.7; 
+                            const wave = Math.sin(x * 0.1) * Math.cos(y * 0.1) * 0.05;
+                            brightness += wave;
+                            brightness = Math.max(0.1, Math.min(1.0, brightness));
+                        }
+                        
+                        const centerZ = res / 2;
+                        const halfThickness = brightness > 0 ? (brightness * (res * 0.4)) : 0;
+                        const startZ = Math.floor(centerZ - halfThickness);
+                        const endZ = Math.ceil(centerZ + halfThickness);
+                        
+                        for (let z = 0; z < res; z++) {
+                            const idx = x + y * res + z * res * res;
+                            if (z >= startZ && z <= endZ && brightness > 0) {
+                                targetField[idx] = 200; 
+                            } else {
+                                targetField[idx] = 0;
+                            }
                         }
                     }
                 }
             }
             
-            // Smooth the voxel steps into nice slopes
             smoothField(targetField, res);
             resolve();
         };
@@ -414,23 +610,31 @@ function loadHeightmap(url, res) {
 }
 
 function smoothField(field, res) {
-    const temp = new Float32Array(res * res * res);
-    temp.set(field);
-    for (let x = 1; x < res - 1; x++) {
+    const temp = new Float32Array(field.length);
+    // Simple 3D Box Blur to remove spikes
+    for (let z = 1; z < res - 1; z++) {
+        const zResRes = z * res * res;
         for (let y = 1; y < res - 1; y++) {
-            for (let z = 1; z < res - 1; z++) {
+            const yRes = y * res;
+            for (let x = 1; x < res - 1; x++) {
+                const idx = x + yRes + zResRes;
+                
+                // 3x3x3 neighborhood average
                 let sum = 0;
-                for (let dx = -1; dx <= 1; dx++) {
+                for (let dz = -1; dz <= 1; dz++) {
+                    const dzOff = (z + dz) * res * res;
                     for (let dy = -1; dy <= 1; dy++) {
-                        for (let dz = -1; dz <= 1; dz++) {
-                            sum += temp[(x+dx) + (y+dy)*res + (z+dz)*res*res];
+                        const dyOff = (y + dy) * res;
+                        for (let dx = -1; dx <= 1; dx++) {
+                            sum += field[x + dx + dyOff + dzOff];
                         }
                     }
                 }
-                field[x + y * res + z * res * res] = sum / 27;
+                temp[idx] = sum / 27;
             }
         }
     }
+    field.set(temp);
 }
 
 function fillMass(mc) {
@@ -443,10 +647,11 @@ function fillMass(mc) {
                 let val = 0;
                 
                 // Solid rectangular slab of stone
-                const padding = Math.floor(res * 0.15);
-                if (x >= padding && x < res - padding && 
-                    y >= padding && y < res - padding && 
-                    z >= padding && z < res - padding) {
+                const paddingXY = Math.floor(res * 0.15);
+                const paddingZ = Math.floor(res * 0.05); // Less padding for Z to allow full depth
+                if (x >= paddingXY && x < res - paddingXY && 
+                    y >= paddingXY && y < res - paddingXY && 
+                    z >= paddingZ && z < res - paddingZ) {
                     val = 100;
                 }
                 
@@ -477,6 +682,11 @@ function updateMarker(e) {
     if (intersects.length > 0) {
         debugMarker.visible = true;
         debugMarker.position.copy(intersects[0].point);
+        // Move interactive light to cursor
+        if (scene.pointLight) {
+            scene.pointLight.position.copy(intersects[0].point);
+            scene.pointLight.position.add(intersects[0].face.normal.multiplyScalar(0.2));
+        }
     } else {
         debugMarker.visible = false;
     }
@@ -532,8 +742,7 @@ function sculptAt(hit) {
                     const dy = y - gridY;
                     const dz = z - gridZ;
                     
-                    const jitter = (Math.random() - 0.5) * 1.5;
-                    const currentRadius = baseRadius + jitter;
+                    const currentRadius = baseRadius; // Remove jitter for more accurate carving
                     const distSq = dx*dx + dy*dy + dz*dz;
                     
                     if (distSq < currentRadius * currentRadius) {
@@ -587,6 +796,39 @@ function updateHUD() {
     document.getElementById('current-statue-name').textContent = levels[currentLevelIndex].name;
 }
 
+function destroyEverything() {
+    if (!targetField || !marchContext) return;
+    
+    saveState();
+    
+    // Create epic destruction effect
+    const res = marchContext.resolution;
+    const level = levels[currentLevelIndex];
+    
+    // Spawn lots of particles
+    for (let i = 0; i < 150; i++) {
+        const randomPos = new THREE.Vector3(
+            (Math.random() - 0.5) * 2.5,
+            (Math.random() - 0.5) * 2.5,
+            (Math.random() - 0.5) * 2.5
+        );
+        particles.push(new Fragment3D(randomPos, level.color, 0.15));
+    }
+    
+    // We only reduce density, never increase it (so we don't 'grow' stone back)
+    for (let i = 0; i < marchContext.field.length; i++) {
+        if (targetField[i] < marchContext.field[i]) {
+            marchContext.field[i] = targetField[i];
+        }
+    }
+    
+    marchContext.update();
+    
+    // Shake camera
+    camera.position.x += (Math.random() - 0.5) * 0.5;
+    camera.position.y += (Math.random() - 0.5) * 0.5;
+}
+
 function levelComplete() {
     isMouseDown = false;
     scene.remove(marchContext);
@@ -614,6 +856,14 @@ function animate() {
     requestAnimationFrame(animate);
     if (controls.enabled) controls.update();
     
+    // Pulse rim light slightly
+    const time = Date.now() * 0.001;
+    scene.children.forEach(child => {
+        if (child.isDirectionalLight && child.color.b > 0.8) {
+            child.intensity = 0.5 + Math.sin(time) * 0.1;
+        }
+    });
+
     // Update particles
     for (let i = particles.length - 1; i >= 0; i--) {
         if (!particles[i].update()) {
