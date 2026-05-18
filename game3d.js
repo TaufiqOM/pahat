@@ -438,11 +438,11 @@ async function loadLevel(index) {
                 
                 vec4 texColor = texture2D(uTex, projUv);
                 
-                float dX = min(vLocalPos.x - (-0.72), 0.70 - vLocalPos.x);
-                float dY = min(vLocalPos.y - (-0.72), 0.70 - vLocalPos.y);
-                float dZ = min(vLocalPos.z - (-0.93), 0.91 - vLocalPos.z);
+                float dX = min(vLocalPos.x - (-0.67), 0.67 - vLocalPos.x);
+                float dY = min(vLocalPos.y - (-0.87), 0.87 - vLocalPos.y);
+                float dZ = min(vLocalPos.z - (-0.87), 0.87 - vLocalPos.z);
                 float minDist = min(min(dX, dY), dZ);
-                float blend = smoothstep(0.01, 0.05, minDist);
+                float blend = smoothstep(0.02, 0.12, minDist);
                 
                 diffuseColor = vec4(mix(uRockColor, texColor.rgb, blend), opacity);
                 `
@@ -461,8 +461,8 @@ async function loadLevel(index) {
         marchContext.position.set(0, 0, 0);
         marchContext.scale.set(1.5, 1.5, 1.5);
         marchContext.isolation = 80;
-        marchContext.castShadow = true;
-        marchContext.receiveShadow = true;
+        marchContext.castShadow = false;
+        marchContext.receiveShadow = false;
         
         // Wait for the heightmap image to load and generate target field
         await loadHeightmap(level.statueImg, resolution, level.isFourView);
@@ -641,23 +641,26 @@ function fillMass(mc) {
     const res = mc.resolution;
     mc.reset(); 
     
+    // Separate padding for each axis to perfectly fit the taller statue proportions
+    const paddingX = Math.floor(res * 0.15);
+    const paddingY = Math.floor(res * 0.05); // Taller box to prevent head/base from sticking out
+    const paddingZ = Math.floor(res * 0.05);
+    
     for (let x = 0; x < res; x++) {
         for (let y = 0; y < res; y++) {
             for (let z = 0; z < res; z++) {
                 let val = 0;
                 
                 // Solid rectangular slab of stone
-                const paddingXY = Math.floor(res * 0.15);
-                const paddingZ = Math.floor(res * 0.05); // Less padding for Z to allow full depth
-                if (x >= paddingXY && x < res - paddingXY && 
-                    y >= paddingXY && y < res - paddingXY && 
+                if (x >= paddingX && x < res - paddingX && 
+                    y >= paddingY && y < res - paddingY && 
                     z >= paddingZ && z < res - paddingZ) {
                     val = 100;
                 }
                 
                 const idx = x + y * res + z * res * res;
-                // Ensure dirt fully covers the hidden statue
-                if (targetField && targetField[idx] > 80) {
+                // Ensure dirt fully covers the hidden statue (threshold > 30 to cover blurred details near boundaries)
+                if (targetField && targetField[idx] > 30) {
                     val = Math.max(val, 100);
                 }
                 
