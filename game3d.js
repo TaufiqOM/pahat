@@ -439,7 +439,7 @@ async function loadLevel(index) {
                 vec4 texColor = texture2D(uTex, projUv);
                 
                 float dX = min(vLocalPos.x - (-0.67), 0.67 - vLocalPos.x);
-                float dY = min(vLocalPos.y - (-0.87), 0.87 - vLocalPos.y);
+                float dY = min(vLocalPos.y - (-0.97), 0.87 - vLocalPos.y);
                 float dZ = min(vLocalPos.z - (-0.87), 0.87 - vLocalPos.z);
                 float minDist = min(min(dX, dY), dZ);
                 float blend = smoothstep(0.02, 0.12, minDist);
@@ -520,7 +520,7 @@ function loadHeightmap(url, res, isFourView = false) {
                     return { a, lum };
                 };
 
-                for (let gy = 0; gy < res; gy++) {
+                for (let gy = 2; gy < res - 2; gy++) {
                     const ny = gy / (res - 1);
                     const imgY = 1.0 - ny;
 
@@ -565,7 +565,7 @@ function loadHeightmap(url, res, isFourView = false) {
                 const depthRange = maxZ - minZ;
                 
                 for (let x = 0; x < res; x++) {
-                    for (let y = 0; y < res; y++) {
+                    for (let y = 2; y < res - 2; y++) {
                         const lx = x / res;
                         const ly = y / res;
                         const idxImg = (Math.floor((1 - ly) * (dataRes - 1)) * dataRes + Math.floor(lx * (dataRes - 1))) * 4;
@@ -653,7 +653,7 @@ function fillMass(mc) {
                 
                 // Solid rectangular slab of stone
                 if (x >= paddingX && x < res - paddingX && 
-                    y >= paddingY && y < res - paddingY && 
+                    y >= 2 && y < res - paddingY && 
                     z >= paddingZ && z < res - paddingZ) {
                     val = 100;
                 }
